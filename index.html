@@ -1,0 +1,209 @@
+<html>
+<head>
+    <title>Chatter</title>
+    <style>
+        #chat {
+            height: 500px;
+        }
+
+        #contentWrap {
+        }
+
+        #chatWrap {
+            float: left;
+            background-color: lightgray;
+            border-radius: 5px;
+        }
+
+        #chat {
+            margin: 20px 20px 20px 20px;
+            overflow-y:scroll; height:400px; width: 960px;
+        }
+
+        #send-message {
+            margin: 10px 10px 10px 10px;
+        }
+
+        #users {
+            float: left;
+            margin: 10px 10px 10px 10px;
+        }
+
+        #nickWrap{
+            background-color: gray;
+            margin: 10px 10px 10px 10px;
+            padding: 10px 10px;
+            color: white;
+            border-radius: 5px;
+        }
+        .padh{
+            padding: 0px 10px;
+        }
+        .padv{
+            padding: 10px 0px;
+        }
+        .marl{
+            margin-left: 10px;
+        }
+        .mart{
+            margin-topL 10px;
+        }
+        .msg{
+            font-family: "Tahoma";
+            line-height: 150%;
+        }
+        .error {
+            color: red;
+        }
+
+        .whisper {
+            color: gray;
+        }
+
+        .alert {
+            color: green;
+        }
+
+        .button {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 5px 5px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            -webkit-transition-duration: 0.4s; /* Safari */
+            transition-duration: 0.4s;
+            cursor: pointer;
+        }
+
+        .button1:hover {
+            background-color: white;
+            color: black;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+        }
+
+        .button1 {
+            background-color: #4CAF50;
+            color: white;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+        }
+        .inputField{
+            height: 30px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="contentWrap">
+    <div class="msg" id="chatWrap">
+<div id="nickWrap">
+    <p class ="padh">Enter a username:</p>
+    <p class="msg" id="nickError" class="padv padh"></p>
+    <form id="setNick" class="padh">
+        <input size="35" class="inputField" id="nickname" >
+        <input type="submit" class="button button1" value="Set Name">
+    </form>
+</div>
+        <div id="chat"></div>
+        <form id="send-message">
+            <input size="35" class="inputField" id="message" autocomplete="off">
+            <input id="stopBtn" type="button" class="button button1" value="Stop">
+            <input id="toggleBtn" type="button" class="button button1" value="Toggle">
+        </form>
+    </div>
+    <div id="users"></div>
+</div>
+
+<script src="http://code.jquery.com/jquery-latest.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    jQuery(function ($) {//shorthand document.ready
+        var socket = io.connect(); //from js above
+        var $nickForm = $('#setNick');
+        var $nickError = $('#nickError');
+        var $nickBox = $('#nickname');
+        var $users = $('#users');
+        var $messageForm = $('#send-message');
+        var $messageBox = $('#message');
+        var $chat = $('#chat');
+        var nickname;
+
+        $('#stopBtn').click(function(e){
+           socket.emit('stop say', function(){});
+        });
+
+        $('#toggleBtn').click(function(e){
+           socket.emit('toggle say', function(){});
+        });
+
+        $nickForm.submit(function (e) {
+            e.preventDefault();
+            if($nickBox.val().trim() != "") {
+                socket.emit('new user', $nickBox.val(), function (success, nick) {
+                    if (success) {
+                        $('#nickWrap').html('<p class="msg marl mart"> Welcome, ' + nick + '!</br></br></p>');
+                        $('#contentWrap').show();
+                        nickname = nick;
+                    } else {
+                        $nickError.html('<p class="msg error marl mart" id="nickError">That username is already taken. Try again.</p>');
+                    }
+                });
+                $nickBox.val('');
+            } else {
+                $nickError.html('<p class="msg error marl mart" id="nickError">Please enter a username.</p>');
+            }
+        });
+
+        socket.on('usernames', function (data) {
+            var html = '';
+            for (i = 0; i < data.length; i++) {
+                html += data[i] + '<br/>';
+            }
+            $users.html(html);
+        });
+
+        $messageForm.submit(function (e) {
+            e.preventDefault();
+            if($messageBox.val().trim() != "" && nickname != null ) {
+                socket.emit('send message', $messageBox.val(), function (data) {
+                    displayMsg(data, 'error');
+                });
+                $messageBox.val('');
+            }
+        });
+
+        function displayMsg(data, cls) {
+            if (cls == "alert" || cls == "error") {
+                $chat.append("<span class='msg " + cls + "'>" + data + "</span><br/>");
+            } else {
+                $chat.append("<span class='msg " + cls + "'><b>" + data.nick + ": </b>" + data.msg + "</span><br/>");
+            }
+        }
+
+        socket.on('load old msgs', function (docs) {
+            //for (var i = docs.length - 1; i >= 0; i--) {
+             for(var i = 0; i<docs.length; i++){
+                displayMsg(docs[i], 'msg');
+            }
+        });
+
+        socket.on('new message', function (data) {
+            displayMsg(data, 'msg');
+        });
+
+        socket.on('whisper', function (data) {
+            displayMsg(data, 'whisper');
+        });
+
+        socket.on('alert', function (data) {
+            displayMsg(data, 'alert');
+        });
+    })
+</script>
+</body>
+</html>
