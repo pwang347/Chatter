@@ -8,7 +8,8 @@ var express = require('express'),
     cheerio = require('cheerio'),
     fs = require('fs'),
     SAY_LIMIT = 100,
-    SAY_ENABLED = true;
+    SAY_ENABLED = true,
+    SAY_INTERRUPT = true;
 
 var say = require('say');
 
@@ -40,6 +41,8 @@ io.sockets.on('connection', function (socket) {
         if (err) throw err;
         socket.emit('load old msgs', docs);
     });
+
+    updateNicknames();
 
     socket.on('new user', function (data, callback) {
         if (data in users) {
@@ -92,15 +95,24 @@ io.sockets.on('connection', function (socket) {
     });
 
     socket.on('stop say', function(){
-       say.stop(); //currently buggy?
+       say.stop();
     });
 
     socket.on('toggle say', function(){
-       SAY_ENABLED = !SAY_ENABLED;
+        say.stop();
+        SAY_ENABLED = !SAY_ENABLED;
     });
 
     function playTTS(text){
-        if(SAY_ENABLED)
-        say.speak(text.substr(0, SAY_LIMIT));
+        if(SAY_INTERRUPT){
+            say.stop();
+            setTimeout(function () {
+                if (SAY_ENABLED) {
+                    say.speak(text);
+                }
+            }, 100);
+        }  else {
+            say.speak(text);
+        }
     }
 });

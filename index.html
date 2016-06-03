@@ -29,11 +29,20 @@
             margin: 10px 10px 10px 10px;
         }
 
-        #nickWrap{
+        #userInfo{
             background-color: gray;
             margin: 10px 10px 10px 10px;
             padding: 10px 10px;
             color: white;
+            border-radius: 5px;
+        }
+        #sidebar{
+            background-color: lightgreen;
+            margin: 10px 10px 10px 10px;
+            padding: 10px 10px;
+            float: left;
+            height: 400px;
+            width: 200px;
             border-radius: 5px;
         }
         .padh{
@@ -101,22 +110,27 @@
 <body>
 <div id="contentWrap">
     <div class="msg" id="chatWrap">
-<div id="nickWrap">
+<div id="userInfo">
+    <div id="nickWrap">
     <p class ="padh">Enter a username:</p>
-    <p class="msg" id="nickError" class="padv padh"></p>
     <form id="setNick" class="padh">
         <input size="35" class="inputField" id="nickname" >
         <input type="submit" class="button button1" value="Set Name">
     </form>
+    </div>
+    <p class="msg" id="notices" class="padv padh"></p>
 </div>
         <div id="chat"></div>
         <form id="send-message">
             <input size="35" class="inputField" id="message" autocomplete="off">
             <input id="stopBtn" type="button" class="button button1" value="Stop">
-            <input id="toggleBtn" type="button" class="button button1" value="Toggle">
+            <input id="toggleBtn" type="button" class="button button1" value="  Mute  ">
         </form>
     </div>
-    <div id="users"></div>
+    <div id="sidebar">
+        <p class ="marl msg">Currently online</p>
+        <div id="users"></div>
+    </div>
 </div>
 
 <script src="http://code.jquery.com/jquery-latest.min.js"></script>
@@ -125,7 +139,7 @@
     jQuery(function ($) {//shorthand document.ready
         var socket = io.connect(); //from js above
         var $nickForm = $('#setNick');
-        var $nickError = $('#nickError');
+        var $notices = $('#notices');
         var $nickBox = $('#nickname');
         var $users = $('#users');
         var $messageForm = $('#send-message');
@@ -138,7 +152,12 @@
         });
 
         $('#toggleBtn').click(function(e){
-           socket.emit('toggle say', function(){});
+            socket.emit('toggle say', function(){});
+            if($(this).prop("value") == "  Mute  "){
+                $(this).prop('value', 'Unmute');
+            } else {
+                $(this).prop('value', '  Mute  ');
+            }
         });
 
         $nickForm.submit(function (e) {
@@ -149,40 +168,63 @@
                         $('#nickWrap').html('<p class="msg marl mart"> Welcome, ' + nick + '!</br></br></p>');
                         $('#contentWrap').show();
                         nickname = nick;
+                        resetNotices();
                     } else {
-                        $nickError.html('<p class="msg error marl mart" id="nickError">That username is already taken. Try again.</p>');
+                        displayNotice('That username is already taken. Try again.');
                     }
                 });
                 $nickBox.val('');
             } else {
-                $nickError.html('<p class="msg error marl mart" id="nickError">Please enter a username.</p>');
+               displayNotice('Please enter a username');
             }
         });
 
         socket.on('usernames', function (data) {
             var html = '';
             for (i = 0; i < data.length; i++) {
-                html += data[i] + '<br/>';
+                html += '<span class="msg">' + data[i] + '</span><br/>';
             }
             $users.html(html);
         });
 
         $messageForm.submit(function (e) {
             e.preventDefault();
-            if($messageBox.val().trim() != "" && nickname != null ) {
-                socket.emit('send message', $messageBox.val(), function (data) {
-                    displayMsg(data, 'error');
-                });
-                $messageBox.val('');
+            resetNotices();
+            if($messageBox.val().trim() != "") {
+                if(nickname != null ) {
+                    socket.emit('send message', $messageBox.val(), function (data) {
+                        displayMsg(data, 'error');
+                    });
+                } else {
+                    displayNotice('Must set name before sending message.');
+                }
+            } else {
+                displayNotice('Message length must be at least one character.');
             }
+            $messageBox.val('');
         });
 
         function displayMsg(data, cls) {
+            var shouldAnimate = isScrolledToBottom($chat);
             if (cls == "alert" || cls == "error") {
                 $chat.append("<span class='msg " + cls + "'>" + data + "</span><br/>");
             } else {
                 $chat.append("<span class='msg " + cls + "'><b>" + data.nick + ": </b>" + data.msg + "</span><br/>");
             }
+            if(shouldAnimate)
+            $chat[0].scrollTop = $chat[0].scrollHeight;
+        }
+
+        function isScrolledToBottom(div){
+            return (div.scrollTop() + div.innerHeight() + 20 >= div[0].scrollHeight);
+        }
+
+        function displayNotice(notice){
+            $notices.html('<p class="msg error marl mart" id="notices">' + notice + '</p>');
+        }
+
+        function resetNotices(){
+            $notices.html("");
         }
 
         socket.on('load old msgs', function (docs) {
